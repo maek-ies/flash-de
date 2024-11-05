@@ -1,33 +1,16 @@
 # Load the required packages
 library(shiny)
 library(bslib)
-
+library(data.table)
 # List of top 100 German words with Czech translations
 flashcards <- data.frame(
-    german = c("der", "und", "sein", "in", "zu", "haben", "ich", "werden", "sie", "von",
-               "nicht", "mit", "es", "sich", "auf", "für", "er", "so", "dass", "können",
-               "dies", "als", "aber", "wir", "sein", "bei", "oder", "ein", "sagen", "um",
-               "müssen", "über", "machen", "kein", "durch", "wollen", "auch", "mir", "mehr",
-               "wissen", "dann", "jetzt", "mein", "etwas", "gehen", "kommen", "lassen", "sein",
-               "stehen", "finden", "bleiben", "nehmen", "bringen", "denken", "dürfen", "wissen",
-               "vor", "gehen", "sehen", "geben", "kommen", "lassen", "sagen", "gehen", "stehen",
-               "machen", "nehmen", "sollen", "tun", "finden", "halten", "müssen", "leben", "brauchen",
-               "vidět", "najít", "žít", "zůstat", "přijít", "jít", "vidět", "dát", "přijít",
-               "stát", "najít", "přinést", "myslet", "smět", "vědět", "před", "po", "u",
-               "bez", "vždy", "možný"),
-    czech = c("ten", "a", "být", "v", "k", "mít", "já", "stát se", "ona", "z",
-              "ne", "s", "to", "se", "na", "pro", "on", "tak", "že", "moci",
-              "toto", "jako", "ale", "my", "být", "u", "nebo", "jeden", "říkat", "aby",
-              "muset", "o", "dělat", "žádný", "skrz", "chtít", "taky", "mně", "víc",
-              "vědět", "pak", "teď", "můj", "něco", "jít", "přijít", "nechat", "on",
-              "stát", "najít", "zůstat", "vzít", "přinést", "myslet", "smět", "vědět",
-              "před", "jít", "vidět", "dát", "přijít", "nechat", "říkat", "jít", "stát",
-              "dělat", "vzít", "mít", "dělat", "najít", "držet", "muset", "žít", "potřebovat",
-              "vidět", "najít", "žít", "zůstat", "přijít", "jít", "vidět", "dát", "přijít",
-              "stát", "najít", "přinést", "myslet", "smět", "vědět", "před", "po", "u",
-              "bez", "vždy", "možný"),
+    
     stringsAsFactors = FALSE
 )
+
+flashcards = fread("kontext_b2_wordlist_translated.csv")
+setnames(flashcards,"Word","german")
+setnames(flashcards,"Czech Translation","czech")
 
 # Define the UI with bslib theme
 ui <- fluidPage(
