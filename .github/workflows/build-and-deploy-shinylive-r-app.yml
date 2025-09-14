@@ -35,6 +35,7 @@ jobs:
             packages:
               cran::shinylive,
               data.table
+              shinyjs
   
         # Export the current working directory as the shiny app
         # using the pinned version of the Shinylive R package
