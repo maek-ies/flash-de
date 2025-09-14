@@ -1,150 +1,226 @@
-# Load the required packages
 library(shiny)
 library(bslib)
-library(data.table)
-# List of top 100 German words with Czech translations
-flashcards <- data.frame(
-    
+library(shinyjs)
+
+# ---- Sample data ----
+verbs <- data.frame(
+    english = c("be","have","do","say","get","make","go","know","take","see",
+                "come","think","give","find","tell","become","show","leave","feel","put",
+                "bring","begin","keep","hold","write","stand","hear","let","mean","set",
+                "meet","run","pay","sit","speak","lie","lead","read","grow","lose",
+                "fall","send","build","understand","draw","break","spend","cut","rise","buy"),
+    past_simple = c("was/were","had","did","said","got","made","went","knew","took","saw",
+                    "came","thought","gave","found","told","became","showed","left","felt","put",
+                    "brought","began","kept","held","wrote","stood","heard","let","meant","set",
+                    "met","ran","paid","sat","spoke","lay","led","read","grew","lost",
+                    "fell","sent","built","understood","drew","broke","spent","cut","rose","bought"),
+    past_participle = c("been","had","done","said","got/gotten","made","gone","known","taken","seen",
+                        "come","thought","given","found","told","become","shown","left","felt","put",
+                        "brought","begun","kept","held","written","stood","heard","let","meant","set",
+                        "met","run","paid","sat","spoken","lain","led","read","grown","lost",
+                        "fallen","sent","built","understood","drawn","broken","spent","cut","risen","bought"),
+    czech = c("být","mít","dělat","říct","dostat","udělat","jít","vědět","vzít","vidět",
+              "přijít","myslet","dát","najít","říct","stát se","ukázat","odejít","cítit","dát",
+              "donést","začít","udržet","držet","psát","stát","slyšet","dovolit","znamenat","nastavit",
+              "potkat","běžet","zaplatit","sedět","mluvit","ležet","vést","číst","růst","ztratit",
+              "padnout","poslat","stavět","rozumět","kreslit","zlomit","utrácet","řezat","stoupnout","koupit"),
+    rank = 1:50,
     stringsAsFactors = FALSE
 )
 
-flashcards = fread("kontext_b2_wordlist_translated.csv")
-setnames(flashcards,"Word","german")
-setnames(flashcards,"Czech Translation","czech")
-
-# Define the UI with bslib theme
-ui <- fluidPage(
-    theme = bs_theme(bootswatch = "minty"),
-    titlePanel("German-Czech Flashcards"),
+ui <- page_fillable(
+    theme = bs_theme(bootswatch = "flatly"),
+    useShinyjs(),
+    tags$style(HTML("
+    .flip-card {
+      background-color: transparent;
+      width: 350px;
+      height: 250px;
+      perspective: 1000px;
+      margin: auto;
+    }
+    .flip-card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      border-radius: 12px;
+    }
+    .flip-card.flipped .flip-card-inner {
+      transform: rotateY(180deg);
+    }
+    .flip-card-front, .flip-card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 1.2em;
+    }
+    .flip-card-front {
+      background-color: #f8f9fa;
+      color: #333;
+    }
+    .flip-card-back {
+      background-color: #007bff;
+      color: white;
+      transform: rotateY(180deg);
+      font-size: 1.1em;
+      line-height: 1.6;
+    }
+    .answer-row { margin: 2px 0; }
+    .answer-label { font-size: 0.9em; opacity: 0.7; }
+    .answer-cz {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #eee;
+      font-weight: bold;
+    }
+    .btn-row {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    @media (max-width: 576px) {
+      .flip-card { width: 90%; height: 220px; }
+    }
+  ")),
+    tags$script(HTML("
+    $(document).on('click', '.flip-card', function() {
+      $(this).toggleClass('flipped');
+    });
+  ")),
     
-    # Centered layout for flashcards
-    fluidRow(
-        column(
-            width = 6, offset = 3,
-            # Dropdown for selecting direction and practice set
-            selectInput("direction", "Select direction:", 
-                        choices = c("German to Czech", "Czech to German")),
-            selectInput("practice_set", "Select practice set:", 
-                        choices = c("All Words", "Flagged Words")),
-            
-            # Flashcard container with larger font and centered text
+    layout_sidebar(
+        sidebar = sidebar(
+            selectInput("direction", "Direction", 
+                        c("English → Czech" = "en2cz", "Czech → English" = "cz2en")),
+            selectInput("practice_set", "Practice set", 
+                        c("Full set" = "full", "Flagged only" = "flagged")),
+            selectInput("count", "Number of words", c(50, 100, 150), selected = 50)
+        ),
+        layout_columns(
+            col_widths = c(12),
+            uiOutput("progress_text"),
             div(
-                style = "padding: 20px; font-size: 30px; text-align: center; 
-                 border: 2px solid #5bc0de; border-radius: 10px; background-color: #f7f7f7;",
-                textOutput("phrase"),
-                textOutput("translation")
+                class = "flip-card", id = "singleCard",
+                div(class = "flip-card-inner",
+                    div(class = "flip-card-front",
+                        uiOutput("card_front")
+                    ),
+                    div(class = "flip-card-back",
+                        uiOutput("card_back")
+                    )
+                )
             ),
-            br(),
-            
-            # Display remaining words
-            div(
-                style = "text-align: center; font-size: 20px; margin-top: 10px;",
-                textOutput("remaining_words")
+            # --- Buttons below card in two rows ---
+            div(class = "btn-row",
+                actionButton("prev", "Previous"),
+                actionButton("nextBtn", "Next")
             ),
-            
-            # Button row for navigation, showing answer, and flagging/unflagging
-            div(
-                style = "text-align: center; margin-top: 20px;",
-                actionButton("next_card", "Next Card", class = "btn-primary"),
-                actionButton("show_answer", "Show Answer", class = "btn-info"),
-                actionButton("toggle_flag", "Flag Word", class = "btn-warning")
+            div(class = "btn-row",
+                actionButton("shuffle", "Shuffle"),
+                actionButton("flagBtn", "Flag / Unflag")
             )
         )
     )
 )
 
-# Define the server
 server <- function(input, output, session) {
+    pool <- reactiveVal(verbs)
+    flagged <- reactiveVal(integer(0))
+    cur <- reactiveVal(1)
     
-    # Reactive values to store indices, flagged words, and states
-    all_indices <- reactiveVal(sample(nrow(flashcards)))
-    flagged_indices <- reactiveVal(c())
-    card_index <- reactiveVal(1)
-    show_translation <- reactiveVal(FALSE)
-    
-    # Update current flashcard set based on selected practice set
-    current_indices <- reactive({
-        if (input$practice_set == "Flagged Words") {
-            flagged_indices()
-        } else {
-            all_indices()
-        }
-    })
-    
-    # Observe "Next Card" button click
-    observeEvent(input$next_card, {
-        # Move to the next card in the current set
-        new_index <- card_index() + 1
-        if (new_index > length(current_indices())) {
-            # Reshuffle if at the end of the set
-            if (input$practice_set == "All Words") {
-                all_indices(sample(nrow(flashcards)))
-            }
-            new_index <- 1
-        }
-        card_index(new_index)
-        show_translation(FALSE)  # Hide translation for new card
-    })
-    
-    # Show translation on button click
-    observeEvent(input$show_answer, {
-        show_translation(TRUE)
-    })
-    
-    # Flag or unflag the current word
-    observeEvent(input$toggle_flag, {
-        current_index <- current_indices()[card_index()]
-        if (current_index %in% flagged_indices()) {
-            # Unflag if already flagged
-            flagged_indices(setdiff(flagged_indices(), current_index))
-        } else {
-            # Flag if not already flagged
-            flagged_indices(c(flagged_indices(), current_index))
-        }
-    })
-    
-    # Update "Flag/Unflag Word" button text based on current word's flag status
+    # Reset pool when count or practice_set changes
     observe({
-        current_index <- current_indices()[card_index()]
-        if (current_index %in% flagged_indices()) {
-            updateActionButton(session, "toggle_flag", label = "Unflag Word")
-        } else {
-            updateActionButton(session, "toggle_flag", label = "Flag Word")
+        n <- as.numeric(input$count)
+        df <- verbs[1:min(n, nrow(verbs)), ]
+        if (input$practice_set == "flagged") {
+            f <- flagged()
+            if (length(f) > 0) df <- df[df$english %in% verbs$english[f], ]
+            else df <- df[0, ]
         }
+        pool(df)
+        cur(1)   # reset index so counter works
     })
     
-    # Display the phrase based on the chosen direction
-    output$phrase <- renderText({
-        index <- current_indices()[card_index()]
-        card <- flashcards[index, ]
-        if (input$direction == "German to Czech") {
-            paste("German:", card$german)
-        } else {
-            paste("Czech:", card$czech)
-        }
+    get_current_pool <- reactive(pool())
+    
+    output$progress_text <- renderUI({
+        df <- get_current_pool()
+        if (nrow(df) == 0) return(NULL)
+        div(class="text-center mb-2",
+            paste("Card", cur(), "of", nrow(df),
+                  "| Remaining:", nrow(df) - cur()))
     })
     
-    # Display the translation, hidden initially
-    output$translation <- renderText({
-        if (show_translation()) {
-            index <- current_indices()[card_index()]
-            card <- flashcards[index, ]
-            if (input$direction == "German to Czech") {
-                paste("Czech:", card$czech)
-            } else {
-                paste("German:", card$german)
-            }
-        } else {
-            ""
-        }
+    output$card_front <- renderUI({
+        df <- get_current_pool()
+        i <- cur()
+        if (nrow(df) == 0) return(NULL)
+        if (input$direction == "en2cz") span(df$english[i]) else span(df$czech[i])
     })
     
-    # Display remaining words in the current set
-    output$remaining_words <- renderText({
-        remaining <- length(current_indices()) - card_index() + 1
-        paste("Words remaining in this round:", remaining)
+    output$card_back <- renderUI({
+        df <- get_current_pool()
+        i <- cur()
+        if (nrow(df) == 0) return(NULL)
+        tagList(
+            div(class="answer-row", span(class="answer-label","Base form: "), strong(df$english[i])),
+            div(class="answer-row", span(class="answer-label","Past simple: "), strong(df$past_simple[i])),
+            div(class="answer-row", span(class="answer-label","Past participle: "), strong(df$past_participle[i])),
+            div(class="answer-cz", "Czech: ", df$czech[i])
+        )
+    })
+    
+    observeEvent(input$shuffle, {
+        df <- get_current_pool()
+        if (nrow(df) == 0) return()
+        pool(df[sample(nrow(df)), ])
+        cur(1)
+        runjs("document.getElementById('singleCard').classList.remove('flipped')")
+    })
+    
+    observeEvent(input$nextBtn, {
+        p <- get_current_pool()
+        if (nrow(p) == 0) return()
+        i <- cur() + 1
+        if (i > nrow(p)) i <- 1
+        cur(i)
+        runjs("document.getElementById('singleCard').classList.remove('flipped')")
+    })
+    
+    observeEvent(input$prev, {
+        p <- get_current_pool()
+        if (nrow(p) == 0) return()
+        i <- cur() - 1
+        if (i < 1) i <- nrow(p)
+        cur(i)
+        runjs("document.getElementById('singleCard').classList.remove('flipped')")
+    })
+    
+    observeEvent(input$flagBtn, {
+        df <- get_current_pool()
+        if (nrow(df) == 0) return()
+        word <- df$english[cur()]
+        idx <- which(verbs$english == word)
+        f <- flagged()
+        if (idx %in% f) {
+            flagged(setdiff(f, idx))
+        } else {
+            flagged(c(f, idx))
+        }
     })
 }
 
-# Run the app
-shinyApp(ui = ui, server = server)
+shinyApp(ui, server)
+
